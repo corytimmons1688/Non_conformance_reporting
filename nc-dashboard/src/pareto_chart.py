@@ -349,29 +349,37 @@ def create_pareto_chart(pareto_data: pd.DataFrame) -> go.Figure:
     Returns:
         Plotly Figure object
     """
-    fig = go.Figure()
+    from plotly.subplots import make_subplots
+    
+    # Create figure with secondary y-axis
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
     
     # Add bar chart for counts
-    fig.add_trace(go.Bar(
-        x=pareto_data['Issue Type'],
-        y=pareto_data['Count'],
-        name='NC Count',
-        marker_color='#3498db',
-        hovertemplate='<b>%{x}</b><br>Count: %{y}<br>Percentage: %{customdata:.1f}%<extra></extra>',
-        customdata=pareto_data['Percentage']
-    ))
+    fig.add_trace(
+        go.Bar(
+            x=pareto_data['Issue Type'],
+            y=pareto_data['Count'],
+            name='NC Count',
+            marker_color='#3498db',
+            hovertemplate='<b>%{x}</b><br>Count: %{y}<br>Percentage: %{customdata:.1f}%<extra></extra>',
+            customdata=pareto_data['Percentage']
+        ),
+        secondary_y=False
+    )
     
     # Add line chart for cumulative percentage
-    fig.add_trace(go.Scatter(
-        x=pareto_data['Issue Type'],
-        y=pareto_data['Cumulative_Pct'],
-        name='Cumulative %',
-        mode='lines+markers',
-        line=dict(color='#e74c3c', width=3),
-        marker=dict(size=8),
-        yaxis='y2',
-        hovertemplate='<b>%{x}</b><br>Cumulative: %{y:.1f}%<extra></extra>'
-    ))
+    fig.add_trace(
+        go.Scatter(
+            x=pareto_data['Issue Type'],
+            y=pareto_data['Cumulative_Pct'],
+            name='Cumulative %',
+            mode='lines+markers',
+            line=dict(color='#e74c3c', width=3),
+            marker=dict(size=8),
+            hovertemplate='<b>%{x}</b><br>Cumulative: %{y:.1f}%<extra></extra>'
+        ),
+        secondary_y=True
+    )
     
     # Add 80% threshold line
     fig.add_hline(
@@ -380,41 +388,47 @@ def create_pareto_chart(pareto_data: pd.DataFrame) -> go.Figure:
         line_color="gray",
         annotation_text="80% Threshold",
         annotation_position="right",
-        yref='y2'
+        secondary_y=True
     )
     
     # Update layout
     fig.update_layout(
         title="Issue Type Pareto Analysis",
         height=500,
-        xaxis=dict(
-            title="Issue Type",
-            tickangle=-45,
-            tickfont=dict(size=10)
-        ),
-        yaxis=dict(
-            title="Number of NCs",
-            titlefont=dict(color='#3498db'),
-            tickfont=dict(color='#3498db')
-        ),
-        yaxis2=dict(
-            title="Cumulative Percentage (%)",
-            titlefont=dict(color='#e74c3c'),
-            tickfont=dict(color='#e74c3c'),
-            overlaying='y',
-            side='right',
-            range=[0, 105],
-            showgrid=False
-        ),
+        hovermode='x unified',
+        bargap=0.2,
         legend=dict(
             orientation='h',
             yanchor='bottom',
             y=1.02,
             xanchor='center',
             x=0.5
-        ),
-        hovermode='x unified',
-        bargap=0.2
+        )
+    )
+    
+    # Update x-axis
+    fig.update_xaxes(
+        title_text="Issue Type",
+        tickangle=-45,
+        tickfont=dict(size=10)
+    )
+    
+    # Update primary y-axis (bar chart)
+    fig.update_yaxes(
+        title_text="Number of NCs",
+        titlefont=dict(color='#3498db'),
+        tickfont=dict(color='#3498db'),
+        secondary_y=False
+    )
+    
+    # Update secondary y-axis (line chart)
+    fig.update_yaxes(
+        title_text="Cumulative Percentage (%)",
+        titlefont=dict(color='#e74c3c'),
+        tickfont=dict(color='#e74c3c'),
+        range=[0, 105],
+        showgrid=False,
+        secondary_y=True
     )
     
     return fig
