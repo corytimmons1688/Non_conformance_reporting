@@ -36,16 +36,24 @@ def get_google_credentials() -> Optional[Credentials]:
     """
     Retrieve Google credentials from Streamlit secrets.
     
+    Supports two secret formats:
+    1. [service_account] - flat structure
+    2. [gcp_service_account] - nested structure
+    
     Returns:
         Credentials object or None if not configured
     """
     try:
-        # Check if secrets are configured
-        if "gcp_service_account" not in st.secrets:
-            logger.warning("GCP service account not found in secrets")
+        # Check for service_account format (user's format)
+        if "service_account" in st.secrets:
+            credentials_dict = dict(st.secrets["service_account"])
+        # Check for gcp_service_account format (original format)
+        elif "gcp_service_account" in st.secrets:
+            credentials_dict = dict(st.secrets["gcp_service_account"])
+        else:
+            logger.warning("Service account not found in secrets")
             return None
         
-        credentials_dict = dict(st.secrets["gcp_service_account"])
         credentials = Credentials.from_service_account_info(
             credentials_dict,
             scopes=SCOPES
@@ -83,18 +91,27 @@ def load_nc_data() -> Optional[pd.DataFrame]:
     
     Data is cached for 5 minutes (300 seconds) to improve performance.
     
+    Supports two secret formats:
+    1. SPREADSHEET_ID at root level + [service_account]
+    2. [google_sheets] with spreadsheet_id + [gcp_service_account]
+    
     Returns:
         DataFrame with NC data or None if loading fails
     """
     try:
-        # Get spreadsheet configuration from secrets
-        if "google_sheets" not in st.secrets:
-            logger.error("Google Sheets configuration not found in secrets")
-            st.error("Google Sheets not configured. Please check your secrets.toml")
+        # Get spreadsheet configuration from secrets (support both formats)
+        if "SPREADSHEET_ID" in st.secrets:
+            # User's format: SPREADSHEET_ID at root level
+            spreadsheet_id = st.secrets["SPREADSHEET_ID"]
+            sheet_name = st.secrets.get("SHEET_NAME", "Non-Conformance Details")
+        elif "google_sheets" in st.secrets:
+            # Original format: nested under google_sheets
+            spreadsheet_id = st.secrets["google_sheets"]["spreadsheet_id"]
+            sheet_name = st.secrets["google_sheets"].get("sheet_name", "Non-Conformance Details")
+        else:
+            logger.error("Spreadsheet ID not found in secrets")
+            st.error("Spreadsheet ID not configured. Add SPREADSHEET_ID to your secrets.")
             return None
-        
-        spreadsheet_id = st.secrets["google_sheets"]["spreadsheet_id"]
-        sheet_name = st.secrets["google_sheets"].get("sheet_name", "Non-Conformance Details")
         
         # Get gspread client
         client = get_gspread_client()
@@ -317,3 +334,4 @@ def load_sample_data() -> pd.DataFrame:
     
     df = pd.DataFrame(sample_data)
     return clean_and_transform_data(df)
+
