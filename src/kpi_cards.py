@@ -237,6 +237,294 @@ def render_open_nc_status_tracker(df: pd.DataFrame) -> None:
             file_name="nc_status_report.csv",
             mime="text/csv"
         )
+    
+    # Row 5: Current Week Detailed View
+    st.markdown("---")
+    render_current_week_detail_view(df)
+
+
+def render_current_week_detail_view(df: pd.DataFrame) -> None:
+    """
+    Render a detailed view of current week's NCs with all columns.
+    
+    Args:
+        df: NC DataFrame
+    """
+    from datetime import datetime, timedelta
+    
+    st.markdown("## 📅 Current Week Detailed View")
+    st.markdown("Full details of non-conformances from the current and recent weeks")
+    
+    if df.empty:
+        st.warning("No data available.")
+        return
+    
+    # Ensure Date Submitted is datetime
+    df = df.copy()
+    df['Date Submitted'] = pd.to_datetime(df['Date Submitted'], errors='coerce')
+    
+    # Calculate current week boundaries
+    today = datetime.now()
+    current_week_start = today - timedelta(days=today.weekday())  # Monday of current week
+    current_week_start = current_week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    # Week selection
+    st.markdown("### 🗓️ Week Selection")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        week_options = [
+            "Current Week",
+            "Last Week", 
+            "Last 2 Weeks",
+            "Last 4 Weeks",
+            "Custom Range"
+        ]
+        selected_period = st.selectbox(
+            "Select Time Period",
+            options=week_options,
+            index=0,
+            key="week_detail_period"
+        )
+    
+    # Calculate date range based on selection
+    if selected_period == "Current Week":
+        start_date = current_week_start
+        end_date = today
+    elif selected_period == "Last Week":
+        start_date = current_week_start - timedelta(days=7)
+        end_date = current_week_start - timedelta(seconds=1)
+    elif selected_period == "Last 2 Weeks":
+        start_date = current_week_start - timedelta(days=14)
+        end_date = today
+    elif selected_period == "Last 4 Weeks":
+        start_date = current_week_start - timedelta(days=28)
+        end_date = today
+    else:  # Custom Range
+        with col2:
+            start_date = st.date_input(
+                "Start Date",
+                value=current_week_start.date(),
+                key="week_detail_start"
+            )
+            start_date = datetime.combine(start_date, datetime.min.time())
+        with col3:
+            end_date = st.date_input(
+                "End Date",
+                value=today.date(),
+                key="week_detail_end"
+            )
+            end_date = datetime.combine(end_date, datetime.max.time())
+    
+    # Filter data for selected period
+    df_valid = df.dropna(subset=['Date Submitted'])
+    mask = (df_valid['Date Submitted'] >= start_date) & (df_valid['Date Submitted'] <= end_date)
+    week_df = df_valid[mask].copy()
+    
+    # Display period info
+    if selected_period != "Custom Range":
+        col2.markdown(f"**From:** {start_date.strftime('%b %d, %Y')}")
+        col3.markdown(f"**To:** {end_date.strftime('%b %d, %Y')}")
+    
+    st.markdown("---")
+    
+    if week_df.empty:
+        st.info(f"No NCs found for {selected_period.lower()}.")
+        return
+    
+    # Summary metrics for selected period
+    st.markdown("### 📊 Period Summary")
+    
+    col1, col2, col3, col4, col5 = st.columns(5)
+    
+    with col1:
+        st.metric("Total NCs", len(week_df))
+    
+    with col2:
+        open_count = len(week_df[week_df['Status'].isin(['Open', 'In Progress', 'Pending Review', 'On Hold'])])
+        st.metric("Open NCs", open_count)
+    
+    with col3:
+        if 'Cost of Rework' in week_df.columns:
+            total_rework = week_df['Cost of Rework'].sum()
+            st.metric("Total Rework Cost", f"${total_rework:,.2f}")
+        else:
+            st.metric("Total Rework Cost", "N/A")
+    
+    with col4:
+        if 'Cost Avoided' in week_df.columns:
+            total_avoided = week_df['Cost Avoided'].sum()
+            st.metric("Total Cost Avoided", f"${total_avoided:,.2f}")
+        else:
+            st.metric("Total Cost Avoided", "N/A")
+    
+    with col5:
+        if 'Total Quantity Affected' in week_df.columns:
+            total_qty = week_df['Total Quantity Affected'].sum()
+            st.metric("Total Qty Affected", f"{total_qty:,.0f}")
+        else:
+            st.metric("Total Qty Affected", "N/A")
+    
+    st.markdown("---")
+    
+    # Filters for the detailed view
+    st.markdown("### 🔍 Filter Data")
+    
+    filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4)
+    
+    with filter_col1:
+        # Status filter
+        status_options = ["All"] + sorted(week_df['Status'].dropna().unique().tolist())
+        status_filter = st.selectbox(
+            "Status",
+            options=status_options,
+            index=0,
+            key="week_detail_status"
+        )
+    
+    with filter_col2:
+        # Priority filter
+        priority_options = ["All"] + sorted(week_df['Priority'].dropna().unique().tolist())
+        priority_filter = st.selectbox(
+            "Priority",
+            options=priority_options,
+            index=0,
+            key="week_detail_priority"
+        )
+    
+    with filter_col3:
+        # External/Internal filter
+        ext_int_options = ["All"] + sorted(week_df['External Or Internal'].dropna().unique().tolist())
+        ext_int_filter = st.selectbox(
+            "External/Internal",
+            options=ext_int_options,
+            index=0,
+            key="week_detail_ext_int"
+        )
+    
+    with filter_col4:
+        # Customer filter
+        customer_options = ["All"] + sorted(week_df['Customer'].dropna().unique().tolist())
+        customer_filter = st.selectbox(
+            "Customer",
+            options=customer_options,
+            index=0,
+            key="week_detail_customer"
+        )
+    
+    # Apply filters
+    filtered_df = week_df.copy()
+    
+    if status_filter != "All":
+        filtered_df = filtered_df[filtered_df['Status'] == status_filter]
+    
+    if priority_filter != "All":
+        filtered_df = filtered_df[filtered_df['Priority'] == priority_filter]
+    
+    if ext_int_filter != "All":
+        filtered_df = filtered_df[filtered_df['External Or Internal'] == ext_int_filter]
+    
+    if customer_filter != "All":
+        filtered_df = filtered_df[filtered_df['Customer'] == customer_filter]
+    
+    # Search box
+    search_term = st.text_input(
+        "🔎 Search (NC Number, Customer, Defect Summary, etc.)",
+        "",
+        key="week_detail_search"
+    )
+    
+    if search_term:
+        search_mask = filtered_df.astype(str).apply(
+            lambda row: row.str.contains(search_term, case=False, na=False).any(), 
+            axis=1
+        )
+        filtered_df = filtered_df[search_mask]
+    
+    st.markdown(f"**Showing {len(filtered_df)} of {len(week_df)} records**")
+    
+    st.markdown("---")
+    
+    # Column selection
+    st.markdown("### 📋 Detailed Data View")
+    
+    all_columns = filtered_df.columns.tolist()
+    
+    # Default columns to show
+    default_columns = [
+        'NC Number', 'Date Submitted', 'Status', 'Priority', 'External Or Internal',
+        'Customer', 'Issue Type', 'Defect Summary', 'Employee Responsible',
+        'Cost of Rework', 'Cost Avoided', 'Total Quantity Affected'
+    ]
+    default_columns = [col for col in default_columns if col in all_columns]
+    
+    with st.expander("⚙️ Configure Columns", expanded=False):
+        selected_columns = st.multiselect(
+            "Select columns to display",
+            options=all_columns,
+            default=default_columns,
+            key="week_detail_columns"
+        )
+        
+        # Quick selection buttons
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if st.button("Select All Columns", key="select_all_cols"):
+                selected_columns = all_columns
+        with col2:
+            if st.button("Reset to Default", key="reset_cols"):
+                selected_columns = default_columns
+        with col3:
+            if st.button("Clear All", key="clear_cols"):
+                selected_columns = ['NC Number']
+    
+    if not selected_columns:
+        selected_columns = ['NC Number']
+    
+    # Prepare display dataframe
+    display_df = filtered_df[selected_columns].copy()
+    
+    # Format date columns for display
+    for col in display_df.columns:
+        if 'date' in col.lower() or 'submitted' in col.lower():
+            if display_df[col].dtype == 'datetime64[ns]':
+                display_df[col] = display_df[col].dt.strftime('%Y-%m-%d %H:%M')
+    
+    # Display the dataframe with full interactivity
+    st.dataframe(
+        display_df,
+        use_container_width=True,
+        hide_index=True,
+        height=500
+    )
+    
+    # Export filtered data
+    st.markdown("---")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Export visible columns
+        csv_visible = display_df.to_csv(index=False)
+        st.download_button(
+            label="📥 Download Visible Columns (CSV)",
+            data=csv_visible,
+            file_name=f"nc_detail_{selected_period.lower().replace(' ', '_')}_visible.csv",
+            mime="text/csv",
+            key="download_visible"
+        )
+    
+    with col2:
+        # Export all columns
+        csv_all = filtered_df.to_csv(index=False)
+        st.download_button(
+            label="📥 Download All Columns (CSV)",
+            data=csv_all,
+            file_name=f"nc_detail_{selected_period.lower().replace(' ', '_')}_all.csv",
+            mime="text/csv",
+            key="download_all"
+        )
 
 
 def render_status_kpi_card(
