@@ -416,7 +416,7 @@ def create_pareto_chart(pareto_data: pd.DataFrame) -> go.Figure:
     # Update primary y-axis (bar chart)
     fig.update_yaxes(
         title_text="Number of NCs",
-        titlefont=dict(color='#3498db'),
+        title_font=dict(color='#3498db'),
         tickfont=dict(color='#3498db'),
         secondary_y=False
     )
@@ -424,7 +424,7 @@ def create_pareto_chart(pareto_data: pd.DataFrame) -> go.Figure:
     # Update secondary y-axis (line chart)
     fig.update_yaxes(
         title_text="Cumulative Percentage (%)",
-        titlefont=dict(color='#e74c3c'),
+        title_font=dict(color='#e74c3c'),
         tickfont=dict(color='#e74c3c'),
         range=[0, 105],
         showgrid=False,
