@@ -107,8 +107,9 @@ def render_aging_dashboard(df: pd.DataFrame) -> None:
     max_age = df_filtered['Age_Days'].max()
     
     # Filter for open NCs only
-    open_statuses = ['Open', 'In Progress', 'Pending Review', 'On Hold']
-    open_ncs = df_filtered[df_filtered['Status'].isin(open_statuses)]
+    # Filter for open NCs only (exclude closed statuses)
+    closed_statuses = ['closed', 'complete', 'resolved', 'done']
+    open_ncs = df_filtered[~df_filtered['Status'].str.lower().isin(closed_statuses)]
     open_avg_age = open_ncs['Age_Days'].mean() if not open_ncs.empty else 0
     
     with col1:
@@ -367,3 +368,4 @@ def calculate_aging_metrics(df: pd.DataFrame) -> dict:
         'count_61_90': len(df[(df['Age_Days'] > 60) & (df['Age_Days'] <= 90)]),
         'count_90_plus': len(df[df['Age_Days'] > 90])
     }
+
