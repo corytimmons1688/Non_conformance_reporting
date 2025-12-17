@@ -204,23 +204,128 @@ def render_open_nc_status_tracker(df: pd.DataFrame) -> None:
             fig_gauge.update_layout(height=300)
             st.plotly_chart(fig_gauge, use_container_width=True)
         
-        # Open NCs summary table
-        st.markdown("### 📊 Open NCs Summary Table")
+        # NEW: Full Detail Table with Status Filter
+        st.markdown("---")
+        st.markdown("### 📋 Open NCs - Full Detail Table")
+        st.markdown("View all source data columns, filtered by status")
         
-        summary_df = open_ncs.groupby(['Status', 'Priority']).agg({
-            'NC Number': 'count',
-            'Cost of Rework': 'sum',
-            'Total Quantity Affected': 'sum'
-        }).reset_index()
-        summary_df.columns = ['Status', 'Priority', 'Count', 'Total Rework Cost', 'Total Qty Affected']
-        summary_df['Total Rework Cost'] = summary_df['Total Rework Cost'].apply(lambda x: f"${x:,.2f}")
-        summary_df['Total Qty Affected'] = summary_df['Total Qty Affected'].apply(lambda x: f"{x:,.0f}")
+        # Status filter for the detail table
+        col1, col2, col3, col4 = st.columns(4)
         
-        st.dataframe(
-            summary_df,
-            use_container_width=True,
-            hide_index=True
+        with col1:
+            # Get unique statuses from open NCs
+            available_statuses = ["All Open"] + sorted(open_ncs['Status'].dropna().unique().tolist())
+            selected_status = st.selectbox(
+                "Filter by Status",
+                options=available_statuses,
+                index=0,
+                key="open_nc_status_filter"
+            )
+        
+        with col2:
+            # Priority filter
+            available_priorities = ["All"] + sorted(open_ncs['Priority'].dropna().unique().tolist())
+            selected_priority = st.selectbox(
+                "Filter by Priority",
+                options=available_priorities,
+                index=0,
+                key="open_nc_priority_filter"
+            )
+        
+        with col3:
+            # External/Internal filter
+            available_ext_int = ["All"] + sorted(open_ncs['External Or Internal'].dropna().unique().tolist())
+            selected_ext_int = st.selectbox(
+                "External/Internal",
+                options=available_ext_int,
+                index=0,
+                key="open_nc_ext_int_filter"
+            )
+        
+        with col4:
+            # Customer filter
+            available_customers = ["All"] + sorted(open_ncs['Customer'].dropna().unique().tolist())
+            selected_customer = st.selectbox(
+                "Filter by Customer",
+                options=available_customers,
+                index=0,
+                key="open_nc_customer_filter"
+            )
+        
+        # Apply filters
+        filtered_open_ncs = open_ncs.copy()
+        
+        if selected_status != "All Open":
+            filtered_open_ncs = filtered_open_ncs[filtered_open_ncs['Status'] == selected_status]
+        
+        if selected_priority != "All":
+            filtered_open_ncs = filtered_open_ncs[filtered_open_ncs['Priority'] == selected_priority]
+        
+        if selected_ext_int != "All":
+            filtered_open_ncs = filtered_open_ncs[filtered_open_ncs['External Or Internal'] == selected_ext_int]
+        
+        if selected_customer != "All":
+            filtered_open_ncs = filtered_open_ncs[filtered_open_ncs['Customer'] == selected_customer]
+        
+        # Search box
+        search_term = st.text_input(
+            "🔎 Search across all columns",
+            "",
+            key="open_nc_search"
         )
+        
+        if search_term:
+            search_mask = filtered_open_ncs.astype(str).apply(
+                lambda row: row.str.contains(search_term, case=False, na=False).any(),
+                axis=1
+            )
+            filtered_open_ncs = filtered_open_ncs[search_mask]
+        
+        # Display record count
+        st.markdown(f"**Showing {len(filtered_open_ncs)} of {len(open_ncs)} open NCs** | {len(filtered_open_ncs.columns)} columns available")
+        
+        # Show column list
+        with st.expander("📑 View All Column Names"):
+            st.markdown(", ".join(filtered_open_ncs.columns.tolist()))
+        
+        # Prepare display dataframe with ALL columns
+        display_df = filtered_open_ncs.copy()
+        
+        # Format date columns for display
+        for col in display_df.columns:
+            if display_df[col].dtype == 'datetime64[ns]':
+                display_df[col] = display_df[col].dt.strftime('%Y-%m-%d')
+        
+        # Display the FULL dataframe with ALL columns
+        st.dataframe(
+            display_df,
+            use_container_width=True,
+            hide_index=True,
+            height=500
+        )
+        
+        # Export filtered data
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            csv_data = filtered_open_ncs.to_csv(index=False)
+            st.download_button(
+                label="📥 Download Filtered Open NCs (CSV)",
+                data=csv_data,
+                file_name="open_ncs_filtered.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+        
+        with col2:
+            csv_all = open_ncs.to_csv(index=False)
+            st.download_button(
+                label="📥 Download All Open NCs (CSV)",
+                data=csv_all,
+                file_name="open_ncs_all.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
     else:
         st.success("🎉 No open NCs! All non-conformances have been resolved.")
     
