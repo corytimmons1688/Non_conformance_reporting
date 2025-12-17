@@ -402,8 +402,8 @@ def render_comparative_analysis(df: pd.DataFrame) -> None:
         )
     
     # Monthly comparison chart
-    monthly_rework = df_valid.set_index('Date Submitted').resample('M')['Cost of Rework'].sum()
-    monthly_avoided = df_valid.set_index('Date Submitted').resample('M')['Cost Avoided'].sum()
+    monthly_rework = df_valid.set_index('Date Submitted').resample('ME')['Cost of Rework'].sum()
+    monthly_avoided = df_valid.set_index('Date Submitted').resample('ME')['Cost Avoided'].sum()
     
     comparison_df = pd.DataFrame({
         'Period': monthly_rework.index.strftime('%Y-%m'),
@@ -482,12 +482,12 @@ def aggregate_by_period(
     freq_map = {
         'Daily': 'D',
         'Weekly': 'W',
-        'Monthly': 'M',
-        'Quarterly': 'Q',
-        'Yearly': 'Y'
+        'Monthly': 'ME',
+        'Quarterly': 'QE',
+        'Yearly': 'YE'
     }
     
-    freq = freq_map.get(period, 'M')
+    freq = freq_map.get(period, 'ME')
     
     # Resample and aggregate
     aggregated = df_indexed.resample(freq)[cost_column].agg(['sum', 'count', 'mean'])
