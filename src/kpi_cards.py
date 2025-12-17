@@ -132,9 +132,10 @@ def render_open_nc_status_tracker(df: pd.DataFrame) -> None:
     # Row 3: Open NCs Deep Dive
     st.markdown("### 🔍 Open NCs Deep Dive")
     
-    # Filter for open (non-closed) NCs
-    open_statuses = ['Open', 'In Progress', 'Pending Review', 'On Hold']
-    open_ncs = df[df['Status'].isin(open_statuses)]
+    # Filter for open (non-closed) NCs - exclude only "Closed" status
+    # This captures all statuses that are not explicitly "Closed"
+    closed_statuses = ['Closed', 'Complete', 'Resolved', 'Done']
+    open_ncs = df[~df['Status'].str.lower().isin([s.lower() for s in closed_statuses])]
     
     if not open_ncs.empty:
         col1, col2, col3 = st.columns(3)
@@ -433,7 +434,8 @@ def render_current_week_detail_view(df: pd.DataFrame) -> None:
     with col1:
         st.metric("📊 Total Records", len(filtered_df))
     with col2:
-        open_count = len(filtered_df[filtered_df['Status'].isin(['Open', 'In Progress', 'Pending Review', 'On Hold'])])
+        closed_statuses_lower = ['closed', 'complete', 'resolved', 'done']
+        open_count = len(filtered_df[~filtered_df['Status'].str.lower().isin(closed_statuses_lower)])
         st.metric("🔴 Open NCs", open_count)
     with col3:
         if 'Cost of Rework' in filtered_df.columns:
