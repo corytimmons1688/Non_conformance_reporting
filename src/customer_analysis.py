@@ -338,7 +338,8 @@ def render_customer_drilldown(df: pd.DataFrame, customer: str) -> None:
         st.metric("Total Cost Avoided", f"${total_avoided:,.2f}")
     
     with col4:
-        open_count = customer_df[customer_df['Status'].isin(['Open', 'In Progress'])].shape[0]
+        closed_statuses = ['closed', 'complete', 'resolved', 'done']
+        open_count = customer_df[~customer_df['Status'].str.lower().isin(closed_statuses)].shape[0]
         st.metric("Open NCs", open_count)
     
     # Charts row
